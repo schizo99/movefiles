@@ -60,7 +60,8 @@ export const moveFiles = query(
 	v.object({ files: v.array(v.string()), dest: v.string() }),
 	({ files, dest }: { files: string[]; dest: string }): { moved: number } => {
 		const srcBase = getSourceDir();
-		const destBase = path.join(getDestDir(), '..', dest);
+		const destBase = path.join(getDestDir(), dest);
+		fs.mkdirSync(destBase, { recursive: true });
 		for (const file of files) {
 			const srcPath = path.join(srcBase, file);
 			const destPath = path.join(destBase, file);
