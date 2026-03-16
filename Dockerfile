@@ -16,10 +16,16 @@ WORKDIR /app
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/node_modules ./node_modules
 COPY package.json .
+COPY entrypoint.sh /entrypoint.sh
+
+RUN apk add --no-cache su-exec && chmod +x /entrypoint.sh
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV PUID=1000
+ENV PGID=1000
 
 EXPOSE 3000
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "build"]
