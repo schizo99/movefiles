@@ -35,9 +35,9 @@
 		moving = true;
 		try {
 			await moveFiles({ files: sourceFiles, dest: destDir });
-			void refresh();
 			sourceFiles = [];
 			destDir = '';
+			await refresh();
 		} finally {
 			moving = false;
 		}
