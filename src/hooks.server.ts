@@ -1,8 +1,8 @@
 import { env } from '$env/dynamic/public';
 
-const REQUIRED = ['PUBLIC_SHARE', 'PUBLIC_DEST_DIRS'];
+const REQUIRED: string[] = ['PUBLIC_SHARE', 'PUBLIC_DEST_DIRS'];
 
-const missing = REQUIRED.filter((key) => !env[key]);
+const missing = REQUIRED.filter((key) => !env[key as `PUBLIC_${string}`]);
 if (missing.length) {
 	process.stderr.write(
 		[

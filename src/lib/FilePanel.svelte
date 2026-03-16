@@ -1,4 +1,21 @@
-<script>
+<script lang="ts">
+	interface FileItem {
+		name: string;
+		isFile?: boolean;
+		isDirectory?: boolean;
+	}
+
+	interface Props {
+		title: string;
+		files: FileItem[];
+		isSelected?: (file: FileItem) => boolean;
+		hoverClass?: string;
+		selectedClass?: string;
+		onItemClick?: (file: FileItem) => void;
+		onItemDblClick?: (file: FileItem) => void;
+		onNavigateUp?: () => void;
+	}
+
 	let {
 		title,
 		files,
@@ -8,7 +25,7 @@
 		onItemClick,
 		onItemDblClick,
 		onNavigateUp
-	} = $props();
+	}: Props = $props();
 </script>
 
 <div class="w-full overflow-hidden rounded border-2 border-gray-400 shadow-md">

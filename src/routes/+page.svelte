@@ -1,26 +1,28 @@
-<script>
+<script lang="ts">
 	import { listFiles, destDirectories, listDir, moveFiles } from '$lib/data.remote';
+	import type { FileEntry } from '$lib/data.remote';
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import FilePanel from '$lib/FilePanel.svelte';
-	let files = $state([]);
-	let destDirs = $state([]);
+
+	let files = $state<FileEntry[]>([]);
+	let destDirs = $state<{ name: string }[]>([]);
 	let currentPath = $state('');
-	let sourceFiles = $state([]);
+	let sourceFiles = $state<string[]>([]);
 	let destDir = $state('');
 	let moving = $state(false);
 
-	const refresh = async () => {
+	const refresh = async (): Promise<void> => {
 		files = await (currentPath ? listDir(currentPath) : listFiles());
 	};
 
-	let interval;
-	const onFocus = () => refresh();
+	let interval: ReturnType<typeof setInterval> | undefined;
+	const onFocus = (): void => { void refresh(); };
 	onMount(() => {
 		if (!browser) return;
-		refresh();
-		destDirectories().then((d) => (destDirs = d));
-		interval = setInterval(refresh, 1000);
+		void refresh();
+		void destDirectories().then((d) => (destDirs = d));
+		interval = setInterval(() => { void refresh(); }, 1000);
 		window.addEventListener('focus', onFocus);
 	});
 	onDestroy(() => {
@@ -28,30 +30,30 @@
 		clearInterval(interval);
 		window.removeEventListener('focus', onFocus);
 	});
-	const handleMove = async () => {
+	const handleMove = async (): Promise<void> => {
 		if (!sourceFiles.length || !destDir) return;
 		moving = true;
 		try {
 			await moveFiles({ files: sourceFiles, dest: destDir });
-			refresh();
+			void refresh();
 			sourceFiles = [];
 			destDir = '';
 		} finally {
 			moving = false;
 		}
 	};
-	const updateFiles = (file) => {
+	const updateFiles = (file: { name: string; isDirectory?: boolean }): void => {
 		if (file.isDirectory) {
 			currentPath = currentPath ? `${currentPath}/${file.name}` : file.name;
 			sourceFiles = [];
-			refresh();
+			void refresh();
 		}
 	};
-	const navigateUp = () => {
+	const navigateUp = (): void => {
 		const parts = currentPath.split('/').slice(0, -1);
 		currentPath = parts.join('/');
 		sourceFiles = [];
-		refresh();
+		void refresh();
 	};
 </script>
 
@@ -87,7 +89,7 @@
 <div class="mt-4 flex justify-center">
 	<button
 		class="rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
-		disabled={!sourceFiles.length  > 0|| !destDir}
+		disabled={sourceFiles.length === 0 || !destDir}
 		onclick={handleMove}
 	>
 		Move
