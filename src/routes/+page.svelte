@@ -34,7 +34,7 @@
 		if (!sourceFiles.length || !destDir) return;
 		moving = true;
 		try {
-			await moveFiles({ files: sourceFiles, dest: destDir });
+			await moveFiles({ files: sourceFiles, dest: destDir, dirpath: currentPath });
 			sourceFiles = [];
 			destDir = '';
 			await refresh();
