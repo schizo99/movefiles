@@ -57,9 +57,9 @@ export const destDirectories = query((): { name: string }[] => {
 });
 
 export const moveFiles = query(
-	v.object({ files: v.array(v.string()), dest: v.string() }),
-	({ files, dest }: { files: string[]; dest: string }): { moved: number } => {
-		const srcBase = getSourceDir();
+	v.object({ files: v.array(v.string()), dest: v.string(), dirpath: v.optional(v.string()) }),
+	({ files, dest, dirpath }: { files: string[]; dest: string; dirpath?: string }): { moved: number } => {
+		const srcBase = path.join(getSourceDir(), dirpath ?? '');
 		const destBase = path.join(getDestDir(), dest);
 		fs.mkdirSync(destBase, { recursive: true });
 		for (const file of files) {
