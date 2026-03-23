@@ -9,6 +9,8 @@
 		title: string;
 		files: FileItem[];
 		isSelected?: (file: FileItem) => boolean;
+		showCheckbox?: boolean;
+		onSelectionToggle?: (file: FileItem, checked: boolean) => void;
 		hoverClass?: string;
 		selectedClass?: string;
 		onItemClick?: (file: FileItem) => void;
@@ -20,6 +22,8 @@
 		title,
 		files,
 		isSelected = () => false,
+		showCheckbox = false,
+		onSelectionToggle,
 		hoverClass = 'hover:bg-blue-100',
 		selectedClass = 'bg-blue-200',
 		onItemClick,
@@ -45,17 +49,29 @@
 				onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onNavigateUp(); }}
 			>..</li>
 		{/if}
-		{#each files as file (file)}
+		{#each files as file (file.name)}
 			<li
 				role="option"
 				aria-selected={isSelected(file)}
-				class={`flex items-center justify-between cursor-pointer rounded px-2 py-3 ${hoverClass} ${file.isDirectory ? 'font-bold' : ''} ${isSelected(file) ? selectedClass : ''}`}
+				class={`flex items-center justify-between rounded px-2 py-3 ${onItemClick ? 'cursor-pointer' : ''} ${hoverClass} ${file.isDirectory ? 'font-bold' : ''} ${isSelected(file) ? selectedClass : ''}`}
 				onclick={() => onItemClick?.(file)}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' || e.key === ' ') onItemClick?.(file);
 				}}
 			>
-				<span>{file.name}</span>
+				<div class="flex items-center gap-2">
+					{#if showCheckbox}
+						<input
+							type="checkbox"
+							checked={isSelected(file)}
+							aria-label={`Select ${file.name}`}
+							onclick={(e) => e.stopPropagation()}
+							onchange={(e) =>
+								onSelectionToggle?.(file, (e.currentTarget as HTMLInputElement).checked)}
+						/>
+					{/if}
+					<span>{file.name}</span>
+				</div>
 				{#if file.isDirectory && onItemDblClick}
 					<button
 						class="ml-2 px-2 py-1 text-gray-500 hover:text-gray-800"

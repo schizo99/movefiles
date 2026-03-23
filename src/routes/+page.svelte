@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listFiles, destDirectories, listDir, moveFiles } from '$lib/data.remote';
+	import { listFiles, destDirectories, listDir, moveFiles, deleteSourceEntries } from '$lib/data.remote';
 	import type { FileEntry } from '$lib/data.remote';
 	import { onDestroy, onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -11,9 +11,45 @@
 	let sourceFiles = $state<string[]>([]);
 	let destDir = $state('');
 	let moving = $state(false);
+	let deleting = $state(false);
+	let showDeleteModal = $state(false);
+	let refreshing = false;
+
+	const sortEntries = (entries: FileEntry[]): FileEntry[] => {
+		return [...entries].sort((a, b) => {
+			if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+			return a.name.localeCompare(b.name);
+		});
+	};
+
+	const sameEntries = (a: FileEntry[], b: FileEntry[]): boolean => {
+		if (a.length !== b.length) return false;
+		for (let i = 0; i < a.length; i += 1) {
+			if (
+				a[i].name !== b[i].name ||
+				a[i].isFile !== b[i].isFile ||
+				a[i].isDirectory !== b[i].isDirectory
+			) {
+				return false;
+			}
+		}
+		return true;
+	};
 
 	const refresh = async (): Promise<void> => {
-		files = await (currentPath ? listDir(currentPath) : listFiles());
+		if (refreshing) return;
+		refreshing = true;
+		try {
+			const nonce = Date.now();
+			const nextFiles = sortEntries(
+				await (currentPath ? listDir({ dirpath: currentPath, nonce }) : listFiles(nonce))
+			);
+			if (!sameEntries(files, nextFiles)) {
+				files = nextFiles;
+			}
+		} finally {
+			refreshing = false;
+		}
 	};
 
 	let interval: ReturnType<typeof setInterval> | undefined;
@@ -42,6 +78,32 @@
 			moving = false;
 		}
 	};
+
+	const openDeleteModal = (): void => {
+		if (!sourceFiles.length) return;
+		showDeleteModal = true;
+	};
+
+	const confirmDelete = async (): Promise<void> => {
+		if (!sourceFiles.length) {
+			showDeleteModal = false;
+			return;
+		}
+		deleting = true;
+		try {
+			await deleteSourceEntries({ entries: sourceFiles, dirpath: currentPath });
+			sourceFiles = [];
+			showDeleteModal = false;
+			await refresh();
+		} finally {
+			deleting = false;
+		}
+	};
+
+	const cancelDelete = (): void => {
+		if (deleting) return;
+		showDeleteModal = false;
+	};
 	const updateFiles = (file: { name: string; isDirectory?: boolean }): void => {
 		if (file.isDirectory) {
 			currentPath = currentPath ? `${currentPath}/${file.name}` : file.name;
@@ -65,13 +127,16 @@
 	<FilePanel
 		title="Source"
 		{files}
+		showCheckbox={true}
 		isSelected={(file) => sourceFiles.includes(file.name)}
-		onItemClick={(file) => {
-			if (sourceFiles.includes(file.name)) {
-				sourceFiles = sourceFiles.filter((f) => f !== file.name);
-			} else {
-				sourceFiles.push(file.name);
+		onSelectionToggle={(file, checked) => {
+			if (checked) {
+				if (!sourceFiles.includes(file.name)) {
+					sourceFiles = [...sourceFiles, file.name];
+				}
+				return;
 			}
+			sourceFiles = sourceFiles.filter((f) => f !== file.name);
 		}}
 		onItemDblClick={updateFiles}
 		onNavigateUp={currentPath ? navigateUp : undefined}
@@ -88,8 +153,15 @@
 
 <div class="mt-4 flex justify-center">
 	<button
+		class="mr-2 rounded bg-red-600 px-6 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-40"
+		disabled={sourceFiles.length === 0 || moving || deleting}
+		onclick={openDeleteModal}
+	>
+		Delete
+	</button>
+	<button
 		class="rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
-		disabled={sourceFiles.length === 0 || !destDir}
+		disabled={sourceFiles.length === 0 || !destDir || deleting || moving}
 		onclick={handleMove}
 	>
 		Move
@@ -104,6 +176,34 @@
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
 			</svg>
 			<span class="text-sm font-medium text-gray-700">Moving files…</span>
+		</div>
+	</div>
+{/if}
+
+{#if showDeleteModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+			<h2 class="text-lg font-semibold text-gray-900">Delete source entries?</h2>
+			<p class="mt-2 text-sm text-gray-700">
+				This will permanently delete {sourceFiles.length} selected source
+				{sourceFiles.length === 1 ? ' item' : ' items'}.
+			</p>
+			<div class="mt-5 flex justify-end gap-2">
+				<button
+					class="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+					disabled={deleting}
+					onclick={cancelDelete}
+				>
+					No
+				</button>
+				<button
+					class="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40"
+					disabled={deleting}
+					onclick={confirmDelete}
+				>
+					Yes, delete
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}
