@@ -14,8 +14,6 @@ FROM node:24-alpine
 WORKDIR /app
 
 COPY --from=builder /app/build ./build
-COPY --from=builder /app/node_modules ./node_modules
-COPY package.json .
 COPY entrypoint.sh /entrypoint.sh
 
 RUN apk add --no-cache su-exec && chmod +x /entrypoint.sh
