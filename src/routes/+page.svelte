@@ -9,6 +9,7 @@
 	let destDirs = $state<{ name: string }[]>([]);
 	let currentPath = $state('');
 	let sourceFiles = $state<string[]>([]);
+	let checkedSourceFiles = $state<string[]>([]);
 	let destDir = $state('');
 	let moving = $state(false);
 	let deleting = $state(false);
@@ -72,6 +73,7 @@
 		try {
 			await moveFiles({ files: sourceFiles, dest: destDir, dirpath: currentPath });
 			sourceFiles = [];
+			checkedSourceFiles = [];
 			destDir = '';
 			await refresh();
 		} finally {
@@ -80,19 +82,20 @@
 	};
 
 	const openDeleteModal = (): void => {
-		if (!sourceFiles.length) return;
+		if (!checkedSourceFiles.length) return;
 		showDeleteModal = true;
 	};
 
 	const confirmDelete = async (): Promise<void> => {
-		if (!sourceFiles.length) {
+		if (!checkedSourceFiles.length) {
 			showDeleteModal = false;
 			return;
 		}
 		deleting = true;
 		try {
-			await deleteSourceEntries({ entries: sourceFiles, dirpath: currentPath });
+			await deleteSourceEntries({ entries: checkedSourceFiles, dirpath: currentPath });
 			sourceFiles = [];
+			checkedSourceFiles = [];
 			showDeleteModal = false;
 			await refresh();
 		} finally {
@@ -108,6 +111,7 @@
 		if (file.isDirectory) {
 			currentPath = currentPath ? `${currentPath}/${file.name}` : file.name;
 			sourceFiles = [];
+			checkedSourceFiles = [];
 			void refresh();
 		}
 	};
@@ -115,6 +119,7 @@
 		const parts = currentPath.split('/').slice(0, -1);
 		currentPath = parts.join('/');
 		sourceFiles = [];
+		checkedSourceFiles = [];
 		void refresh();
 	};
 </script>
@@ -129,14 +134,24 @@
 		{files}
 		showCheckbox={true}
 		isSelected={(file) => sourceFiles.includes(file.name)}
+		isCheckboxChecked={(file) => checkedSourceFiles.includes(file.name)}
 		onSelectionToggle={(file, checked) => {
+			sourceFiles = sourceFiles.filter((f) => f !== file.name);
 			if (checked) {
-				if (!sourceFiles.includes(file.name)) {
-					sourceFiles = [...sourceFiles, file.name];
+				if (!checkedSourceFiles.includes(file.name)) {
+					checkedSourceFiles = [...checkedSourceFiles, file.name];
 				}
 				return;
 			}
-			sourceFiles = sourceFiles.filter((f) => f !== file.name);
+			checkedSourceFiles = checkedSourceFiles.filter((f) => f !== file.name);
+		}}
+		onItemClick={(file) => {
+			checkedSourceFiles = checkedSourceFiles.filter((f) => f !== file.name);
+			if (sourceFiles.includes(file.name)) {
+				sourceFiles = sourceFiles.filter((f) => f !== file.name);
+				return;
+			}
+			sourceFiles = [...sourceFiles, file.name];
 		}}
 		onItemDblClick={updateFiles}
 		onNavigateUp={currentPath ? navigateUp : undefined}
@@ -154,7 +169,7 @@
 <div class="mt-4 flex justify-center">
 	<button
 		class="mr-2 rounded bg-red-600 px-6 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-40"
-		disabled={sourceFiles.length === 0 || moving || deleting}
+		disabled={checkedSourceFiles.length === 0 || moving || deleting}
 		onclick={openDeleteModal}
 	>
 		Delete
@@ -185,8 +200,8 @@
 		<div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
 			<h2 class="text-lg font-semibold text-gray-900">Delete source entries?</h2>
 			<p class="mt-2 text-sm text-gray-700">
-				This will permanently delete {sourceFiles.length} selected source
-				{sourceFiles.length === 1 ? ' item' : ' items'}.
+				This will permanently delete {checkedSourceFiles.length} selected source
+				{checkedSourceFiles.length === 1 ? ' item' : ' items'}.
 			</p>
 			<div class="mt-5 flex justify-end gap-2">
 				<button
