@@ -8,8 +8,7 @@
 	let files = $state<FileEntry[]>([]);
 	let destDirs = $state<{ name: string }[]>([]);
 	let currentPath = $state('');
-	let sourceFiles = $state<string[]>([]);
-	let checkedSourceFiles = $state<string[]>([]);
+	let selectedNames = $state<string[]>([]);
 	let destDir = $state('');
 	let moving = $state(false);
 	let deleting = $state(false);
@@ -68,12 +67,11 @@
 		window.removeEventListener('focus', onFocus);
 	});
 	const handleMove = async (): Promise<void> => {
-		if (!sourceFiles.length || !destDir) return;
+		if (!selectedNames.length || !destDir) return;
 		moving = true;
 		try {
-			await moveFiles({ files: sourceFiles, dest: destDir, dirpath: currentPath });
-			sourceFiles = [];
-			checkedSourceFiles = [];
+			await moveFiles({ files: selectedNames, dest: destDir, dirpath: currentPath });
+			selectedNames = [];
 			destDir = '';
 			await refresh();
 		} finally {
@@ -82,20 +80,19 @@
 	};
 
 	const openDeleteModal = (): void => {
-		if (!checkedSourceFiles.length) return;
+		if (!selectedNames.length) return;
 		showDeleteModal = true;
 	};
 
 	const confirmDelete = async (): Promise<void> => {
-		if (!checkedSourceFiles.length) {
+		if (!selectedNames.length) {
 			showDeleteModal = false;
 			return;
 		}
 		deleting = true;
 		try {
-			await deleteSourceEntries({ entries: checkedSourceFiles, dirpath: currentPath });
-			sourceFiles = [];
-			checkedSourceFiles = [];
+			await deleteSourceEntries({ entries: selectedNames, dirpath: currentPath });
+			selectedNames = [];
 			showDeleteModal = false;
 			await refresh();
 		} finally {
@@ -110,16 +107,14 @@
 	const updateFiles = (file: { name: string; isDirectory?: boolean }): void => {
 		if (file.isDirectory) {
 			currentPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-			sourceFiles = [];
-			checkedSourceFiles = [];
+			selectedNames = [];
 			void refresh();
 		}
 	};
 	const navigateUp = (): void => {
 		const parts = currentPath.split('/').slice(0, -1);
 		currentPath = parts.join('/');
-		sourceFiles = [];
-		checkedSourceFiles = [];
+		selectedNames = [];
 		void refresh();
 	};
 </script>
@@ -133,25 +128,21 @@
 		title="Source"
 		{files}
 		showCheckbox={true}
-		isSelected={(file) => sourceFiles.includes(file.name)}
-		isCheckboxChecked={(file) => checkedSourceFiles.includes(file.name)}
+		isSelected={(file) => selectedNames.includes(file.name)}
+		isCheckboxChecked={(file) => selectedNames.includes(file.name)}
 		onSelectionToggle={(file, checked) => {
-			sourceFiles = sourceFiles.filter((f) => f !== file.name);
 			if (checked) {
-				if (!checkedSourceFiles.includes(file.name)) {
-					checkedSourceFiles = [...checkedSourceFiles, file.name];
-				}
-				return;
+				if (!selectedNames.includes(file.name)) selectedNames = [...selectedNames, file.name];
+			} else {
+				selectedNames = selectedNames.filter((f) => f !== file.name);
 			}
-			checkedSourceFiles = checkedSourceFiles.filter((f) => f !== file.name);
 		}}
 		onItemClick={(file) => {
-			checkedSourceFiles = checkedSourceFiles.filter((f) => f !== file.name);
-			if (sourceFiles.includes(file.name)) {
-				sourceFiles = sourceFiles.filter((f) => f !== file.name);
-				return;
+			if (selectedNames.includes(file.name)) {
+				selectedNames = selectedNames.filter((f) => f !== file.name);
+			} else {
+				selectedNames = [...selectedNames, file.name];
 			}
-			sourceFiles = [...sourceFiles, file.name];
 		}}
 		onItemDblClick={updateFiles}
 		onNavigateUp={currentPath ? navigateUp : undefined}
@@ -169,14 +160,14 @@
 <div class="mt-4 flex justify-center">
 	<button
 		class="mr-2 rounded bg-red-600 px-6 py-2 font-semibold text-white hover:bg-red-700 disabled:opacity-40"
-		disabled={checkedSourceFiles.length === 0 || moving || deleting}
+		disabled={selectedNames.length === 0 || moving || deleting}
 		onclick={openDeleteModal}
 	>
 		Delete
 	</button>
 	<button
 		class="rounded bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
-		disabled={sourceFiles.length === 0 || !destDir || deleting || moving}
+		disabled={selectedNames.length === 0 || deleting || moving || !destDir}
 		onclick={handleMove}
 	>
 		Move
@@ -200,8 +191,8 @@
 		<div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
 			<h2 class="text-lg font-semibold text-gray-900">Delete source entries?</h2>
 			<p class="mt-2 text-sm text-gray-700">
-				This will permanently delete {checkedSourceFiles.length} selected source
-				{checkedSourceFiles.length === 1 ? ' item' : ' items'}.
+				This will permanently delete {selectedNames.length} selected source
+				{selectedNames.length === 1 ? ' item' : ' items'}.
 			</p>
 			<div class="mt-5 flex justify-end gap-2">
 				<button

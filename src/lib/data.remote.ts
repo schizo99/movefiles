@@ -64,6 +64,46 @@ function copyFileWithProgress(
 	}
 }
 
+function getDirectorySizeBytes(dirPath: string): number {
+	let total = 0;
+	for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+		const fullPath = path.join(dirPath, entry.name);
+		if (entry.isDirectory()) {
+			total += getDirectorySizeBytes(fullPath);
+		} else if (entry.isFile()) {
+			total += fs.statSync(fullPath).size;
+		}
+	}
+	return total;
+}
+
+function copyEntryWithProgress(
+	srcPath: string,
+	destPath: string,
+	onChunkCopied: (chunkBytes: number) => void
+): void {
+	const stats = fs.lstatSync(srcPath);
+	if (stats.isDirectory()) {
+		fs.mkdirSync(destPath, { recursive: true });
+		for (const entry of fs.readdirSync(srcPath)) {
+			copyEntryWithProgress(path.join(srcPath, entry), path.join(destPath, entry), onChunkCopied);
+		}
+		return;
+	}
+	if (stats.isFile()) {
+		copyFileWithProgress(srcPath, destPath, onChunkCopied);
+		return;
+	}
+	throw new Error(`Unsupported entry type for move: ${srcPath}`);
+}
+
+function getEntrySizeBytes(srcPath: string): number {
+	const stats = fs.lstatSync(srcPath);
+	if (stats.isDirectory()) return getDirectorySizeBytes(srcPath);
+	if (stats.isFile()) return stats.size;
+	throw new Error(`Unsupported entry type for size calculation: ${srcPath}`);
+}
+
 export const listDir = query(
 	v.object({ dirpath: v.string(), nonce: v.optional(v.number()) }),
 	({ dirpath }: { dirpath: string; nonce?: number }): FileEntry[] => {
@@ -98,8 +138,8 @@ export const moveFiles = query(
 		const progressLogStepBytes = 75 * 1024 * 1024;
 		let totalBytes = 0;
 		for (const file of files) {
-			const srcPath = path.join(srcBase, file);
-			totalBytes += fs.statSync(srcPath).size;
+			const srcPath = resolveWithinBase(srcBase, file);
+			totalBytes += getEntrySizeBytes(srcPath);
 		}
 
 		console.log(
@@ -110,9 +150,9 @@ export const moveFiles = query(
 		let movedBytes = 0;
 		let nextProgressLogAt = progressLogStepBytes;
 		for (const [index, file] of files.entries()) {
-			const srcPath = path.join(srcBase, file);
-			const destPath = path.join(destBase, file);
-			copyFileWithProgress(srcPath, destPath, (chunkBytes: number) => {
+			const srcPath = resolveWithinBase(srcBase, file);
+			const destPath = resolveWithinBase(destBase, file);
+			copyEntryWithProgress(srcPath, destPath, (chunkBytes: number) => {
 				movedBytes += chunkBytes;
 				while (movedBytes >= nextProgressLogAt && nextProgressLogAt <= totalBytes) {
 					console.log(
@@ -121,7 +161,7 @@ export const moveFiles = query(
 					nextProgressLogAt += progressLogStepBytes;
 				}
 			});
-			fs.unlinkSync(srcPath);
+			fs.rmSync(srcPath, { recursive: true, force: true });
 			console.log(
 				`[moveFiles] file_done ${index + 1}/${files.length} ${movedBytes}/${totalBytes} bytes file=${file}`
 			);

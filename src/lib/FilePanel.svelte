@@ -32,18 +32,6 @@
 		onItemDblClick,
 		onNavigateUp
 	}: Props = $props();
-
-	const handleRowClick = (file: FileItem): void => {
-		if (showCheckbox && file.isDirectory && onItemDblClick) {
-			onItemDblClick(file);
-			return;
-		}
-		onItemClick?.(file);
-	};
-
-	const isRowClickable = (file: FileItem): boolean => {
-		return Boolean(onItemClick || (showCheckbox && file.isDirectory && onItemDblClick));
-	};
 </script>
 
 <div class="w-full overflow-hidden rounded border-2 border-gray-400 shadow-md">
@@ -67,13 +55,18 @@
 			<li
 				role="option"
 				aria-selected={isSelected(file)}
-				class={`flex items-center justify-between rounded px-2 py-3 ${isRowClickable(file) ? 'cursor-pointer' : ''} ${hoverClass} ${file.isDirectory ? 'font-bold' : ''} ${isSelected(file) ? selectedClass : ''}`}
-				onclick={() => handleRowClick(file)}
-				onkeydown={(e) => {
-					if (e.key === 'Enter' || e.key === ' ') handleRowClick(file);
-				}}
+				class={`flex items-center justify-between rounded px-2 py-3 ${hoverClass} ${file.isDirectory ? 'font-bold' : ''} ${isSelected(file) ? selectedClass : ''}`}
 			>
-				<div class="flex items-center gap-2">
+				<div
+					role="option"
+					aria-selected={isSelected(file)}
+					tabindex={onItemClick ? 0 : -1}
+					class={`flex flex-1 min-w-0 items-center gap-2 ${onItemClick ? 'cursor-pointer' : ''}`}
+					onclick={() => onItemClick?.(file)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') onItemClick?.(file);
+					}}
+				>
 					{#if showCheckbox}
 						<input
 							type="checkbox"
@@ -84,24 +77,13 @@
 								onSelectionToggle?.(file, (e.currentTarget as HTMLInputElement).checked)}
 						/>
 					{/if}
-					{#if showCheckbox && file.isDirectory}
-						<button
-							type="button"
-							class="text-left"
-							onclick={(e) => {
-								e.stopPropagation();
-								onItemClick?.(file);
-							}}
-						>{file.name}</button>
-					{:else}
-						<span>{file.name}</span>
-					{/if}
+					<span class="truncate">{file.name}</span>
 				</div>
 				{#if file.isDirectory && onItemDblClick}
 					<button
 						class="ml-2 px-2 py-1 text-gray-500 hover:text-gray-800"
 						aria-label="Open {file.name}"
-						onclick={(e) => { e.stopPropagation(); onItemDblClick(file); }}
+						onclick={() => onItemDblClick(file)}
 					>›</button>
 				{/if}
 			</li>
