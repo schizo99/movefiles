@@ -77,7 +77,9 @@
 								onSelectionToggle?.(file, (e.currentTarget as HTMLInputElement).checked)}
 						/>
 					{/if}
-					<span class="truncate">{file.name}</span>
+					<span class="flex min-w-0">
+						<span class="truncate">{file.name.slice(0, -4)}</span><span class="shrink-0">{file.name.slice(-4)}</span>
+					</span>
 				</div>
 				{#if file.isDirectory && onItemDblClick}
 					<button
